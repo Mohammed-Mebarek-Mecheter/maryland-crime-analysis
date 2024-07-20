@@ -16,7 +16,7 @@ def show():
 
     The analysis aims to identify trends, patterns, and potential crime hotspots to inform strategic planning initiatives. The ultimate goal is to achieve a 10% reduction in overall crime rates within the next five years.
 
-    By exploring the various sections of this dashboard, you can gain insights into:
+    By exploring the various sections of this app, you can gain insights into:
 
     * **Trend Analysis:** Overall crime rate trends across Maryland over the past decades.
     * **Crime Distribution:** The most prevalent crime types and how their distribution has changed over time.
@@ -31,3 +31,13 @@ def show():
 
     Explore the app and gain valuable insights to support strategic decision-making for crime reduction in Maryland.
     """)
+
+    # Footer section
+    st.markdown(
+    """
+    Made with ❤️ by [Mebarek](https://www.linkedin.com/in/mohammed-mecheter/). 
+    [GitHub](https://github.com/Mohammed-Mebarek-Mecheter/) | 
+    [LinkedIn](https://www.linkedin.com/in/mohammed-mecheter/) | 
+    [Portfolio](https://mebarek.pages.dev/)
+    """
+    )

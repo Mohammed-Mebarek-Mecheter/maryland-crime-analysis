@@ -1,94 +1,108 @@
 import streamlit as st
 import plotly.express as px
+import plotly.graph_objects as go
+import pandas as pd
 from app.data.data_loader import load_data
 
 def show():
     st.header("Geographical Analysis of Crime Rates in Maryland")
-    st.write("Explore crime rates across different jurisdictions in Maryland.")
+    st.write("Explore crime rates across different jurisdictions in Maryland and compare them to the state average.")
 
     # Load data
     df = load_data('app/data/cleaned_MD_Crime_Data.csv')
 
     # Define crime types
-    crime_types = ['Murder', 'Rape', 'Robbery', 'AggAssault', 'BreakAndEnter', 'LarcenyTheft', 'MotorVehicleTheft']
+    crime_types = ['MurderPer100k', 'RapePer100k', 'RobberyPer100k', 'AggAssaultPer100k',
+                   'BreakAndEnterPer100k', 'LarcenyTheftPer100k', 'MotorVehicleTheftPer100k']
 
-    # Calculate total crime and crime rate
-    df['TotalCrime'] = df[crime_types].sum(axis=1)
-    df['CrimeRate'] = df['TotalCrime'] / df['Population'] * 100000  # per 100,000 population
+    # Calculate total crime rate
+    df['TotalCrimeRate'] = df[crime_types].sum(axis=1)
 
     # Calculate average crime rates by jurisdiction
     avg_crime_rates = df.groupby('Jurisdiction').agg({
-        'CrimeRate': 'mean',
-        'Population': 'mean',
-        'TotalCrime': 'mean'
+        'TotalCrimeRate': 'mean',
+        'Population': 'mean'
     }).reset_index()
 
+    # Calculate state average crime rate
+    state_avg_crime_rate = avg_crime_rates['TotalCrimeRate'].mean()
+
+    # Calculate difference from state average
+    avg_crime_rates['DiffFromStateAvg'] = avg_crime_rates['TotalCrimeRate'] - state_avg_crime_rate
+    avg_crime_rates['PercentDiffFromStateAvg'] = (avg_crime_rates['DiffFromStateAvg'] / state_avg_crime_rate) * 100
+
     # Sort jurisdictions by crime rate
-    avg_crime_rates = avg_crime_rates.sort_values('CrimeRate', ascending=False)
+    avg_crime_rates = avg_crime_rates.sort_values('TotalCrimeRate', ascending=False)
 
     # Create bar chart
     fig = px.bar(avg_crime_rates,
                  x='Jurisdiction',
-                 y='CrimeRate',
+                 y='TotalCrimeRate',
                  title="Average Crime Rates by Jurisdiction (per 100,000 population)",
-                 labels={'CrimeRate': 'Crime Rate (per 100,000)', 'Jurisdiction': 'Jurisdiction'},
-                 color='CrimeRate',
-                 color_continuous_scale='Reds',
-                 hover_data=['Population', 'TotalCrime'])
+                 labels={'TotalCrimeRate': 'Crime Rate (per 100,000)', 'Jurisdiction': 'Jurisdiction'},
+                 color='DiffFromStateAvg',
+                 color_continuous_scale='RdYlGn_r',
+                 hover_data=['Population', 'PercentDiffFromStateAvg'])
+
+    fig.add_hline(y=state_avg_crime_rate, line_dash="dash", line_color="red",
+                  annotation_text="State Average", annotation_position="bottom right")
 
     fig.update_layout(xaxis_tickangle=-45)
     st.plotly_chart(fig, use_container_width=True)
 
-    # Add a slider to select number of top/bottom jurisdictions
-    num_jurisdictions = st.slider("Select number of top/bottom jurisdictions to display", 5, 20, 10)
-
     # Display top and bottom jurisdictions
     col1, col2 = st.columns(2)
     with col1:
-        st.subheader(f"Top {num_jurisdictions} Jurisdictions by Crime Rate")
-        st.table(avg_crime_rates.head(num_jurisdictions).style.format({
-            'CrimeRate': '{:.2f}',
+        st.subheader("Top 5 Jurisdictions by Crime Rate")
+        st.table(avg_crime_rates.head().style.format({
+            'TotalCrimeRate': '{:.2f}',
             'Population': '{:,.0f}',
-            'TotalCrime': '{:.0f}'
+            'DiffFromStateAvg': '{:.2f}',
+            'PercentDiffFromStateAvg': '{:.2f}%'
         }))
 
     with col2:
-        st.subheader(f"Bottom {num_jurisdictions} Jurisdictions by Crime Rate")
-        st.table(avg_crime_rates.tail(num_jurisdictions).style.format({
-            'CrimeRate': '{:.2f}',
+        st.subheader("Bottom 5 Jurisdictions by Crime Rate")
+        st.table(avg_crime_rates.tail().style.format({
+            'TotalCrimeRate': '{:.2f}',
             'Population': '{:,.0f}',
-            'TotalCrime': '{:.0f}'
+            'DiffFromStateAvg': '{:.2f}',
+            'PercentDiffFromStateAvg': '{:.2f}%'
         }))
 
-    # Add crime type breakdown
-    st.subheader("Crime Type Breakdown")
-    selected_jurisdiction = st.selectbox("Select a jurisdiction:", avg_crime_rates['Jurisdiction'])
+    # Create scatter plot
+    fig_scatter = px.scatter(avg_crime_rates, x='Population', y='TotalCrimeRate',
+                             hover_name='Jurisdiction', size='Population', color='DiffFromStateAvg',
+                             color_continuous_scale='RdYlGn_r',
+                             title='Crime Rate vs Population by Jurisdiction')
 
-    jurisdiction_data = df[df['Jurisdiction'] == selected_jurisdiction]
-    crime_breakdown = jurisdiction_data[crime_types].mean()
+    fig_scatter.add_hline(y=state_avg_crime_rate, line_dash="dash", line_color="red",
+                          annotation_text="State Average", annotation_position="bottom right")
 
-    fig_pie = px.pie(values=crime_breakdown.values, names=crime_breakdown.index,
-                     title=f"Crime Type Breakdown for {selected_jurisdiction}")
-    st.plotly_chart(fig_pie, use_container_width=True)
-
-    # Time series analysis
-    st.subheader("Crime Rate Over Time")
-    jurisdiction_time_series = df[df['Jurisdiction'] == selected_jurisdiction].groupby('Year')['CrimeRate'].mean().reset_index()
-
-    fig_time = px.line(jurisdiction_time_series, x='Year', y='CrimeRate',
-                       title=f"Crime Rate Over Time in {selected_jurisdiction}")
-    st.plotly_chart(fig_time, use_container_width=True)
+    st.plotly_chart(fig_scatter, use_container_width=True)
 
     # Additional insights
     st.subheader("Key Insights")
-    st.write(f"1. The jurisdiction with the highest average crime rate is {avg_crime_rates.iloc[0]['Jurisdiction']} "
-             f"with a rate of {avg_crime_rates.iloc[0]['CrimeRate']:.2f} crimes per 100,000 population.")
-    st.write(f"2. The jurisdiction with the lowest average crime rate is {avg_crime_rates.iloc[-1]['Jurisdiction']} "
-             f"with a rate of {avg_crime_rates.iloc[-1]['CrimeRate']:.2f} crimes per 100,000 population.")
-    st.write("3. Urban areas tend to have higher crime rates compared to rural areas, which could be due to factors "
-             "such as population density, economic conditions, and social factors.")
-    st.write("4. The crime type breakdown varies across jurisdictions, reflecting local patterns and challenges.")
-    st.write("5. Crime rates have generally shown a decreasing trend over time in many jurisdictions, but there are exceptions.")
+    highest_rate = avg_crime_rates.iloc[0]
+    lowest_rate = avg_crime_rates.iloc[-1]
+
+    st.write(f"1. The jurisdiction with the highest average crime rate is {highest_rate['Jurisdiction']} "
+             f"with a rate of {highest_rate['TotalCrimeRate']:.2f} crimes per 100,000 population, "
+             f"{highest_rate['PercentDiffFromStateAvg']:.2f}% above the state average.")
+
+    st.write(f"2. The jurisdiction with the lowest average crime rate is {lowest_rate['Jurisdiction']} "
+             f"with a rate of {lowest_rate['TotalCrimeRate']:.2f} crimes per 100,000 population, "
+             f"{abs(lowest_rate['PercentDiffFromStateAvg']):.2f}% below the state average.")
+
+    st.write(f"3. The state average crime rate is {state_avg_crime_rate:.2f} crimes per 100,000 population.")
+
+    above_avg = avg_crime_rates[avg_crime_rates['DiffFromStateAvg'] > 0]
+    below_avg = avg_crime_rates[avg_crime_rates['DiffFromStateAvg'] < 0]
+    st.write(f"4. {len(above_avg)} jurisdictions have crime rates above the state average, "
+             f"while {len(below_avg)} are below average.")
+
+    st.write("5. There appears to be a correlation between population size and crime rate, "
+             "with more populous jurisdictions generally having higher crime rates.")
 
     # Allow users to download the data
     csv = avg_crime_rates.to_csv(index=False)

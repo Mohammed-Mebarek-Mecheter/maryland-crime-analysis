@@ -4,14 +4,14 @@ import pandas as pd
 import numpy as np
 from app.data.data_loader import load_data
 
-def calculate_capped_pct_change(series, cap=1000):
+def calculate_capped_pct_change(series, cap=10):
     """Calculate percentage change with capping for extreme values."""
     pct_change = series.pct_change()
     return pct_change.clip(lower=-cap, upper=cap)
 
 def prepare_data(df, crime_types):
     """Prepare data for analysis and visualization."""
-    crime_data = df[crime_types + ['Year']].set_index('Year')
+    crime_data = df[crime_types + ['Year']].groupby('Year').sum()
     crime_data_pct_change = crime_data.apply(calculate_capped_pct_change).reset_index().melt('Year', var_name='Crime Type', value_name='Pct Change')
     return crime_data_pct_change.dropna()
 
@@ -61,14 +61,14 @@ def show():
 
     # Load and prepare data
     df = load_data('app/data/cleaned_MD_Crime_Data.csv')
-    crime_types = ['Murder', 'Rape', 'Robbery', 'AggAssault', 'BreakAndEnter', 'LarcenyTheft', 'MotorVehicleTheft']
+    crime_types = ['MurderPer100k', 'RapePer100k', 'RobberyPer100k', 'AggAssaultPer100k', 'BreakAndEnterPer100k', 'LarcenyTheftPer100k', 'MotorVehicleTheftPer100k']
     crime_data_pct_change = prepare_data(df, crime_types)
 
     # User interface for crime type selection
     selected_crimes = st.multiselect(
         "Select crime types to display:",
         options=crime_types,
-        default=crime_types
+        default=crime_types[:2]
     )
 
     if not selected_crimes:

@@ -5,3 +5,4 @@ seaborn
 matplotlib
 altair
 plotly
+statsmodels
